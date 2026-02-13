@@ -1,0 +1,282 @@
+#!/usr/bin/env python3
+
+import os
+import csv
+import urllib.request
+import platform
+from stats import (
+    count_words,
+    count_letters,
+    sort_characters,
+    count_specific_word,
+)
+def clear_screen():
+    if platform.system() == "Windows":
+        os.system("cls")
+    else:
+        os.system("clear")
+
+# -----------------------------
+# Colors
+# -----------------------------
+CYAN = "\033[96m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+RED = "\033[91m"
+BLUE = "\033[94m"
+RESET = "\033[0m"
+
+# -----------------------------
+# Paths
+# -----------------------------
+BOOKS_DIR = "books"
+CATALOG_URL = "https://www.gutenberg.org/cache/epub/feeds/pg_catalog.csv"
+CATALOG_FILE = os.path.join(BOOKS_DIR, "catalog.csv")
+
+
+# -----------------------------
+# Utility: List local books
+# -----------------------------
+def list_books():
+    if not os.path.exists(BOOKS_DIR):
+        os.makedirs(BOOKS_DIR)
+    files = os.listdir(BOOKS_DIR)
+    return [f for f in files if f.endswith(".txt")]
+
+
+# -----------------------------
+# Utility: Choose a local book
+# -----------------------------
+def choose_book():
+    books = list_books()
+    if not books:
+        print(f"\n{RED}No local books found. Download some from the online catalog!{RESET}")
+        return None
+
+    print(f"\n{CYAN}📚 Your Books:{RESET}")
+    for i, book in enumerate(books, start=1):
+        print(f"{BLUE}{i}.{RESET} {book}")
+
+    choice = input(f"\n{YELLOW}Choose a book by number:{RESET} ")
+    if not choice.isdigit():
+        return None
+
+    index = int(choice) - 1
+    if index < 0 or index >= len(books):
+        return None
+
+    return os.path.join(BOOKS_DIR, books[index])
+
+
+# -----------------------------
+# Catalog: Download/Update
+# -----------------------------
+def update_catalog():
+    print(f"\n{CYAN}Updating online book catalog...{RESET}")
+    try:
+        urllib.request.urlretrieve(CATALOG_URL, CATALOG_FILE)
+        print(f"{GREEN}Catalog updated successfully.{RESET}")
+    except Exception as e:
+        print(f"{RED}Failed to update catalog: {e}{RESET}")
+
+
+# -----------------------------
+# Catalog: Search
+# -----------------------------
+def search_catalog(term):
+    term = term.lower()
+
+    if not os.path.exists(CATALOG_FILE):
+        update_catalog()
+
+    results = []
+
+    with open(CATALOG_FILE, "r", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+
+        for row in reader:
+            if not row:
+                continue
+            if "title" not in row or "creator" not in row or "gutenberg_id" not in row:
+                continue
+
+            title = (row["title"] or "").lower()
+            author = (row["creator"] or "").lower()
+
+            if term in title or term in author:
+                results.append({
+                    "title": row["title"],
+                    "author": row["creator"],
+                    "id": row["gutenberg_id"]
+                })
+
+    return results
+
+
+# -----------------------------
+# Download a book by Gutenberg ID
+# -----------------------------
+def download_book_by_id(book_id, title):
+    url = f"https://www.gutenberg.org/files/{book_id}/{book_id}-0.txt"
+    filename = f"{title.replace(' ', '_').lower()}.txt"
+    path = os.path.join(BOOKS_DIR, filename)
+
+    print(f"\n{CYAN}Downloading {title}...{RESET}")
+    try:
+        urllib.request.urlretrieve(url, path)
+        print(f"{GREEN}Downloaded as {filename}{RESET}")
+        return path
+    except Exception as e:
+        print(f"{RED}Failed to download book: {e}{RESET}")
+        return None
+
+
+# -----------------------------
+# Menus
+# -----------------------------
+def main_menu():
+    clear_screen()
+    print(f"\n{CYAN}📚 Welcome to BookBot!{RESET}")
+    print(f"{BLUE}1.{RESET} Browse your current library")
+    print(f"{BLUE}2.{RESET} Search online for new books")
+    print(f"{BLUE}3.{RESET} Explore BookBot features")
+    print(f"{BLUE}4.{RESET} Exit")
+    return input(f"\n{YELLOW}Choose an option:{RESET} ")
+
+
+
+def library_menu():
+    clear_screen()
+    print(f"\n{CYAN}📘 Your Library{RESET}")
+    print(f"{BLUE}1.{RESET} List available books")
+    print(f"{BLUE}2.{RESET} Open a book for analysis")
+    print(f"{BLUE}3.{RESET} Return to main menu")
+    return input(f"\n{YELLOW}Choose an option:{RESET} ")
+
+
+
+def features_menu():
+    print(f"\n{CYAN}🛠️ BookBot Features{RESET}")
+    print(f"{BLUE}1.{RESET} Count total words")
+    print(f"{BLUE}2.{RESET} Count letter frequencies")
+    print(f"{BLUE}3.{RESET} Search for a specific word")
+    print(f"{BLUE}4.{RESET} Return to main menu")
+    return input(f"\n{YELLOW}Choose an option:{RESET} ")
+
+
+
+# -----------------------------
+# Main Program Loop
+# -----------------------------
+def main():
+    while True:
+        choice = main_menu()
+
+        # -----------------------------
+        # 1. Library Menu
+        # -----------------------------
+        if choice == "1":
+            while True:
+                lib_choice = library_menu()
+
+                if lib_choice == "1":
+                    books = list_books()
+                    print(f"\n{CYAN}Your Books:{RESET}")
+                    for b in books:
+                        print(f"- {b}")
+
+                elif lib_choice == "2":
+                    book_path = choose_book()
+                    if book_path:
+                        run_features(book_path)
+
+                elif lib_choice == "3":
+                    break
+
+        # -----------------------------
+        # 2. Online Search Menu
+        # -----------------------------
+        
+        elif choice == "2":
+            while True:
+                clear_screen()
+                term = input(f"\n{YELLOW}Enter a title or author (or press Enter to return):{RESET} ")
+                if term.strip() == "":
+                    break
+
+
+                results = search_catalog(term)
+                if not results:
+                    print(f"{RED}No books found matching '{term}'.{RESET}")
+                    continue
+
+                print(f"\n{CYAN}Matches found:{RESET}")
+                for i, r in enumerate(results[:20], start=1):
+                    print(f"{BLUE}{i}.{RESET} {r['title']} — {r['author']}")
+
+                choice = input(f"\n{YELLOW}Choose a book to download (or press Enter to cancel):{RESET} ")
+                if choice.strip() == "":
+                    continue
+
+                index = int(choice) - 1
+                selected = results[index]
+
+                path = download_book_by_id(selected["id"], selected["title"])
+                if path:
+                    print(f"{GREEN}Book downloaded successfully!{RESET}")
+                break
+
+        # -----------------------------
+        # 3. Features Menu
+        # -----------------------------
+        elif choice == "3":
+            book_path = choose_book()
+            if book_path:
+                run_features(book_path)
+
+        # -----------------------------
+        # 4. Exit
+        # -----------------------------
+        elif choice == "4":
+            print(f"\n{GREEN}👋 Exiting BookBot. Goodbye!{RESET}")
+            break
+
+        else:
+            print(f"{RED}Invalid choice.{RESET}")
+
+
+# -----------------------------
+# Run Features
+# -----------------------------
+def run_features(book_path):
+    with open(book_path, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    while True:
+        feat = features_menu()
+
+        if feat == "1":
+            print(f"\n{GREEN}Total words: {count_words(text)}{RESET}")
+
+        elif feat == "2":
+            print(f"\n{CYAN}Letter frequencies:{RESET}")
+            char_counts = count_letters(text)
+            sorted_chars = sort_characters(char_counts)
+            for item in sorted_chars:
+                print(f"{item['char']}: {item['num']}")
+
+        elif feat == "3":
+            target = input(f"\n{YELLOW}Enter the word to search for:{RESET} ")
+            count = count_specific_word(text, target)
+            print(f"{GREEN}The word '{target}' appears {count} times{RESET}")
+
+        elif feat == "4":
+            break
+
+        else:
+            print(f"{RED}Invalid choice.{RESET}")
+
+
+if __name__ == "__main__":
+    main()
+
