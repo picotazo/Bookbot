@@ -1,0 +1,39 @@
+
+---
+
+# ✅ **.gitignore (Python + uv + editor‑friendly)**
+
+```gitignore
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# uv package manager
+.uv/
+uv.lock
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# Logs
+*.log
+
+# Byte-compiled / optimized / DLL files
+*.so
+
+# Test cache
+.pytest_cache/
